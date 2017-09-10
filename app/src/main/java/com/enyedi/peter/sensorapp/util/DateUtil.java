@@ -12,6 +12,6 @@ public class DateUtil {
     }
 
     public static String getSecondFromSensorTimestamp(final long startTime, final long timestamp) {
-        return String.valueOf((timestamp - startTime) / 1000000);
+        return String.valueOf((timestamp - startTime) / 1000000000);
     }
 }

@@ -17,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.enyedi.peter.sensorapp.R;
+import com.enyedi.peter.sensorapp.model.SensorData;
 import com.enyedi.peter.sensorapp.util.DateUtil;
 import com.opencsv.CSVWriter;
 
@@ -35,6 +36,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     Button startStopButton;
     TextView chronometer;
     boolean isMeasurementStarted = false;
+    Timer timer;
+    TimerTask task;
+    SensorManager sensorManager;
+    Sensor accelerometer;
+    Sensor gyroscope;
+    Sensor inklinometer;
+    Sensor compass;
+    CSVWriter writer;
+    List<SensorData> accEventList = new ArrayList<>();
+    List<SensorData> gyrEventList = new ArrayList<>();
+    List<SensorData> rotEventList = new ArrayList<>();
+    String startDate;
+    long startTimeMillisec;
     Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -44,22 +58,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             chronometer.setText(String.format(Locale.getDefault(), "%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60));
         }
     };
-    Timer timer;
-    TimerTask task;
-
-    SensorManager sensorManager;
-    Sensor accelerometer;
-    Sensor gyroscope;
-    Sensor inklinometer;
-    Sensor compass;
-
-    CSVWriter writer;
-    List<SensorEvent> accEventList;
-    List<SensorEvent> gyrEventList;
-    List<SensorEvent> rotEventList;
-
-    String startDate;
-    long startTimeMillisec;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,9 +88,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startAccelerometer();
         startGyro();
         startInklinometer();
-        //startTimer();
         //startGps();
-        startCompass();
+        //startCompass();
         //getStartOtherData();
 
         openCsvWriter();
@@ -179,21 +176,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         switch (event.sensor.getType()) {
             case Sensor.TYPE_ACCELEROMETER:
                 Log.d(TAG, "onSensorChanged: Accelerometer changed " + event.timestamp);
-                //sensorData = new String[]{"acc", String.valueOf(System.currentTimeMillis())};
-                //writer.writeNext(sensorData);
-                accEventList.add(event);
+
+                accEventList.add(createNewSensorData(event));
                 break;
             case Sensor.TYPE_GYROSCOPE:
                 Log.d(TAG, "onSensorChanged: Gyroscope changed " + System.currentTimeMillis());
-                //sensorData = new String[]{"gyr", String.valueOf(System.currentTimeMillis())};
-                //writer.writeNext(sensorData);
-                gyrEventList.add(event);
+
+                gyrEventList.add(createNewSensorData(event));
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
                 Log.d(TAG, "onSensorChanged: Rotation vector changed " + System.currentTimeMillis());
-                //sensorData = new String[]{"rot", String.valueOf(System.currentTimeMillis())};
-                //writer.writeNext(sensorData);
-                rotEventList.add(event);
+
+                rotEventList.add(createNewSensorData(event));
                 break;
         }
     }
@@ -201,6 +195,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    private SensorData createNewSensorData(SensorEvent event) {
+        SensorData data = new SensorData();
+        data.setValues(event.values);
+        data.setTimestamp(event.timestamp);
+        return data;
     }
 
     private void openCsvWriter() {
@@ -235,27 +236,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         writer.writeNext(sensorFreq);
         writer.writeNext(headers);
 
-        List<SensorEvent> accData;
-        List<SensorEvent> gyroData;
-        List<SensorEvent> rotData;
+        List<SensorData> accData;
+        List<SensorData> gyroData;
+        List<SensorData> rotData;
 
         accData = accEventList.subList(accEventList.size() - rotEventList.size(), accEventList.size());
         gyroData = accEventList.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size());
         rotData = rotEventList;
 
-        Log.d(TAG, "writeDataInFile: acc: " + accEventList.size());
-        Log.d(TAG, "writeDataInFile: gyro: " + gyrEventList.size());
-        Log.d(TAG, "writeDataInFile: rot: " + rotEventList.size());
-        Log.d(TAG, "writeDataInFile: acc: " + accData.size());
-        Log.d(TAG, "writeDataInFile: gyro: " + gyroData.size());
-        Log.d(TAG, "writeDataInFile: rot: " + rotData.size());
-
         for (int i = 0; i < accData.size(); i++) {
             writer.writeNext(
                     new String[]{"",
-                            DateUtil.getSecondFromSensorTimestamp(accData.get(0).timestamp, accData.get(i).timestamp),
+                            DateUtil.getSecondFromSensorTimestamp(accData.get(0).getTimestamp(), accData.get(i).getTimestamp()),
                             "0", "0", "0",
-                            String.valueOf(accData.get(i).values[0]), String.valueOf(accData.get(i).values[1]), String.valueOf(accData.get(i).values[2])
+                            String.valueOf(accData.get(i).getValues()[0]), String.valueOf(accData.get(i).getValues()[1]), String.valueOf(accData.get(i).getValues()[2]),
+                            String.valueOf(rotData.get(i).getValues()[0]), String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]),
+                            String.valueOf(gyroData.get(i).getValues()[0]), String.valueOf(gyroData.get(i).getValues()[1]), String.valueOf(gyroData.get(i).getValues()[2])
                     });
         }
 
