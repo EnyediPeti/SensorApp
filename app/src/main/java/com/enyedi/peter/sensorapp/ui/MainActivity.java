@@ -153,7 +153,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void startAccelerometer() {
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         accEventList = new ArrayList<>();
         Log.d(TAG, "startAccelerometer: name: [" + accelerometer.getName() +
@@ -174,19 +174,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onSensorChanged(SensorEvent event) {
         switch (event.sensor.getType()) {
-            case Sensor.TYPE_ACCELEROMETER:
-                Log.d(TAG, "onSensorChanged: Accelerometer changed " + event.timestamp);
-
+            case Sensor.TYPE_LINEAR_ACCELERATION:
                 accEventList.add(createNewSensorData(event));
                 break;
             case Sensor.TYPE_GYROSCOPE:
-                Log.d(TAG, "onSensorChanged: Gyroscope changed " + System.currentTimeMillis());
-
                 gyrEventList.add(createNewSensorData(event));
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
-                Log.d(TAG, "onSensorChanged: Rotation vector changed " + System.currentTimeMillis());
-
                 rotEventList.add(createNewSensorData(event));
                 break;
         }
@@ -240,9 +234,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         List<SensorData> gyroData;
         List<SensorData> rotData;
 
-        accData = accEventList.subList(accEventList.size() - rotEventList.size(), accEventList.size());
-        gyroData = accEventList.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size());
+        accData = accEventList/*.subList(accEventList.size() - rotEventList.size(), accEventList.size())*/;
+        gyroData = accEventList/*.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size())*/;
         rotData = rotEventList;
+
+        Log.d(TAG, "writeDataInFile: accData " + accData.size());
+        Log.d(TAG, "writeDataInFile: gyroData " + gyroData.size());
+        Log.d(TAG, "writeDataInFile: rotData " + rotData.size());
 
         for (int i = 0; i < accData.size(); i++) {
             writer.writeNext(

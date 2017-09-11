@@ -13,7 +13,9 @@ public class SensorData {
     }
 
     public void setValues(float[] values) {
-        this.values = values;
+        this.values[0] = values[0];
+        this.values[1] = values[1];
+        this.values[2] = values[2];
     }
 
     public long getTimestamp() {
