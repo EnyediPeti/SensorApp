@@ -1,14 +1,25 @@
 package com.enyedi.peter.sensorapp.ui;
 
+import android.Manifest;
+import android.app.Service;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.provider.Settings;
+import android.support.annotation.NonNull;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -30,14 +41,28 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+import permissions.dispatcher.NeedsPermission;
+import permissions.dispatcher.OnPermissionDenied;
+import permissions.dispatcher.OnShowRationale;
+import permissions.dispatcher.PermissionRequest;
+import permissions.dispatcher.PermissionUtils;
+import permissions.dispatcher.RuntimePermissions;
+
+@RuntimePermissions
+public class MainActivity extends AppCompatActivity implements SensorEventListener, LocationListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+    private static final long MIN_TIME_BW_UPDATES = 0;
+    private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 0;
     Button startStopButton;
     TextView chronometer;
+
     boolean isMeasurementStarted = false;
+
     Timer timer;
     TimerTask task;
+    LocationManager locationManager;
+    Location loc;
     SensorManager sensorManager;
     Sensor accelerometer;
     Sensor gyroscope;
@@ -47,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     List<SensorData> accEventList = new ArrayList<>();
     List<SensorData> gyrEventList = new ArrayList<>();
     List<SensorData> rotEventList = new ArrayList<>();
+    List<Location> locationList = new ArrayList<>();
     String startDate;
     long startTimeMillisec;
     Handler handler = new Handler() {
@@ -58,6 +84,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             chronometer.setText(String.format(Locale.getDefault(), "%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60));
         }
     };
+    private AlertDialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,18 +108,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void onStartClicked() {
-        startTimer();
-        startDate = DateUtil.getFormattedDate();
-        startStopButton.setText(getString(R.string.stop));
-        isMeasurementStarted = true;
-        startAccelerometer();
-        startGyro();
-        startInklinometer();
-        //startGps();
-        //startCompass();
-        //getStartOtherData();
+        if (PermissionUtils.hasSelfPermissions(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            startAllSensor();
+        } else {
+            if (PermissionUtils.shouldShowRequestPermissionRationale(
+                    this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                MainActivityPermissionsDispatcher.startAllSensorWithCheck(this);
+            } else {
+                showPermissionDialog(getString(R.string.permission_show_rationale), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        MainActivityPermissionsDispatcher.startAllSensorWithCheck(MainActivity.this);
+                    }
+                });
+            }
 
-        openCsvWriter();
+        }
     }
 
     private void onStopClicked() {
@@ -100,6 +131,92 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startStopButton.setText(getString(R.string.start));
         isMeasurementStarted = false;
         stopAllSensor();
+    }
+
+    @NeedsPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    public void startAllSensor() {
+        startTimer();
+        startDate = DateUtil.getFormattedDate();
+        startStopButton.setText(getString(R.string.stop));
+        isMeasurementStarted = true;
+        startAccelerometer();
+        startGyro();
+        startInklinometer();
+        startGps();
+        //startCompass();
+        //getStartOtherData();
+
+        openCsvWriter();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        MainActivityPermissionsDispatcher.onRequestPermissionsResult(this, requestCode, grantResults);
+    }
+
+    @OnShowRationale(Manifest.permission.ACCESS_FINE_LOCATION)
+    public void showRationale(final PermissionRequest request) {
+        showPermissionDialog(getString(R.string.permission_show_rationale), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                switch (which) {
+                    case DialogInterface.BUTTON_POSITIVE:
+                        request.proceed();
+                        break;
+                }
+            }
+        });
+    }
+
+    @OnPermissionDenied(Manifest.permission.ACCESS_FINE_LOCATION)
+    public void onAccessFineLocationPermissionDenied() {
+        showNeedPermissionDialogWhenDenied();
+    }
+
+    private void showNeedPermissionDialogWhenDenied() {
+        showPermissionDialog(getString(R.string.permission_show_rationale), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                switch (which) {
+                    case DialogInterface.BUTTON_POSITIVE:
+                        startInstalledAppDetailsActivity();
+                        break;
+                }
+            }
+        });
+    }
+
+    protected void showPermissionDialog(String message, DialogInterface.OnClickListener onPosClickListener) {
+        if (dialog == null || !dialog.isShowing()) {
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setMessage(message);
+            builder.setPositiveButton("Ok", onPosClickListener);
+            builder.setNegativeButton("Cancel", null);
+            builder.setCancelable(false);
+
+            dialog = builder.create();
+            dialog.show();
+        }
+    }
+
+    private void startInstalledAppDetailsActivity() {
+        final Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+
+        startActivity(intent);
+    }
+
+
+    private void startGps() {
+        locationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
+        getLocation();
     }
 
     private void startTimer() {
@@ -117,52 +234,52 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void startCompass() {
         compass = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        Log.d(TAG, "startCompass: name: [" + compass.getName() +
+        /*Log.d(TAG, "startCompass: name: [" + compass.getName() +
                 "], min delay: [" + compass.getMinDelay() +
                 "], max delay: [" + compass.getMaxDelay() +
                 "], max range: [" + compass.getMaximumRange() +
                 "], resolution: [" + compass.getResolution() +
                 "]"
-        );
+        );*/
     }
 
     private void startInklinometer() {
         inklinometer = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         sensorManager.registerListener(this, inklinometer, SensorManager.SENSOR_DELAY_FASTEST);
         rotEventList = new ArrayList<>();
-        Log.d(TAG, "startInklinometer: name: [" + inklinometer.getName() +
+        /*Log.d(TAG, "startInklinometer: name: [" + inklinometer.getName() +
                 "], min delay: [" + inklinometer.getMinDelay() +
                 "], max delay: [" + inklinometer.getMaxDelay() +
                 "], max range: [" + inklinometer.getMaximumRange() +
                 "], resolution: [" + inklinometer.getResolution() +
                 "]"
-        );
+        );*/
     }
 
     private void startGyro() {
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_FASTEST);
         gyrEventList = new ArrayList<>();
-        Log.d(TAG, "startGyro: name: [" + gyroscope.getName() +
+        /*Log.d(TAG, "startGyro: name: [" + gyroscope.getName() +
                 "], min delay: [" + gyroscope.getMinDelay() +
                 "], max delay: [" + gyroscope.getMaxDelay() +
                 "], max range: [" + gyroscope.getMaximumRange() +
                 "], resolution: [" + gyroscope.getResolution() +
                 "]"
-        );
+        );*/
     }
 
     private void startAccelerometer() {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         accEventList = new ArrayList<>();
-        Log.d(TAG, "startAccelerometer: name: [" + accelerometer.getName() +
+        /*Log.d(TAG, "startAccelerometer: name: [" + accelerometer.getName() +
                 "], min delay: [" + accelerometer.getMinDelay() +
                 "], max delay: [" + accelerometer.getMaxDelay() +
                 "], max range: [" + accelerometer.getMaximumRange() +
                 "], resolution: [" + accelerometer.getResolution() +
                 "]"
-        );
+        );*/
     }
 
     private void stopAllSensor() {
@@ -257,6 +374,48 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             writer.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void getLocation() {
+        try {
+            locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    MIN_TIME_BW_UPDATES,
+                    MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+
+            if (locationManager != null) {
+                loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                if (loc != null) {
+                    locationList.add(loc);
+                }
+            }
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        // Only GPS data? Accepted accuracy?
+        locationList.add(location);
+        Log.d(TAG, "onLocationChanged() called with: location = [" + location.getAccuracy() + "]");
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+        if (locationManager != null) {
+            locationManager.removeUpdates(this);
         }
     }
 }
