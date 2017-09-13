@@ -2,5 +2,5 @@
     <string name="app_name">SensorApp</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
-    <string name="permission_show_rationale">Allow the app to access your location. Otherwise, you will not be able to use this feature.</string>
+    <string name="permission_show_rationale">Allow the app to access your location and to write to the external storage. Otherwise, you will not be able to use this feature.</string>
 </resources>
