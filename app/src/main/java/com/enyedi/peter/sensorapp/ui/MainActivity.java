@@ -159,17 +159,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @NeedsPermission({Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE})
     public void startAllSensor() {
-        startTimer();
-        startDate = DateUtil.getFormattedDate();
-        startStopButton.setText(getString(R.string.stop));
-        isMeasurementStarted = true;
-        startAccelerometer();
-        startGyro();
-        startInklinometer();
-        startGps();
-        startCompass();
+        locationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
+        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            startTimer();
+            startDate = DateUtil.getFormattedDate();
+            startStopButton.setText(getString(R.string.stop));
+            isMeasurementStarted = true;
+            startAccelerometer();
+            startGyro();
+            startInklinometer();
+            startGps();
+            startCompass();
 
-        openCsvWriter();
+            openCsvWriter();
+        } else {
+            Toast.makeText(this, "Enable GPS to use this app", Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -242,8 +247,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void startGps() {
-        locationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
-        getLocation();
+        try {
+            locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    MIN_TIME_BW_UPDATES,
+                    MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+
+            if (locationManager != null) {
+                loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            }
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
     }
 
     private void startTimer() {
@@ -375,7 +390,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         String[] startTime = {"Start", startDate};
         String[] endTime = {"End", DateUtil.getFormattedDate()};
         String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 10)))};
-        String[] headers = {"parameters:", "t[s]", "v[m/s]", "lat", "lon", "ax", "ay", "az", "pitch", "roll", "yaw", "gyro_x", "gyro_y", "gyro_z", "deg"};
+        String[] headers = {"parameters:", "t[s]", "v[m/s]", "lat", "lon", "accuracy", "ax", "ay", "az", "pitch", "roll", "yaw", "gyro_x", "gyro_y", "gyro_z", "deg"};
 
 
         writer.writeNext(startTime);
@@ -404,7 +419,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             writer.writeNext(
                     new String[]{"",
                             DateUtil.getSecondFromSensorTimestamp(accData.get(0).getTimestamp(), accData.get(i).getTimestamp()),
-                            String.valueOf(locationList.get(i).getSpeed()), String.valueOf(locationList.get(i).getLat()), String.valueOf(locationList.get(i).getLon()), // GPS speed, lat, lon
+                            String.valueOf(locationList.get(i).getSpeed()), String.valueOf(locationList.get(i).getLat()), String.valueOf(locationList.get(i).getLon()), String.valueOf(locationList.get(i).getAccuracy()), // GPS speed, lat, lon, acc
                             String.valueOf(accData.get(i).getValues()[0]), String.valueOf(accData.get(i).getValues()[1]), String.valueOf(accData.get(i).getValues()[2]), // accelerometer x, y, z
                             String.valueOf(rotData.get(i).getValues()[0]), String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]), // rotation x, y, z
                             String.valueOf(gyroData.get(i).getValues()[0]), String.valueOf(gyroData.get(i).getValues()[1]), String.valueOf(gyroData.get(i).getValues()[2]), // gyroscope x, y, z
@@ -415,21 +430,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         try {
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void getLocation() {
-        try {
-            locationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    MIN_TIME_BW_UPDATES,
-                    MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-
-            if (locationManager != null) {
-                loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            }
-        } catch (SecurityException e) {
             e.printStackTrace();
         }
     }

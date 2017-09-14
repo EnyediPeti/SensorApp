@@ -13,10 +13,10 @@ public class SensorUtil {
 
     public static LocationData createNewLocationData(Location l) {
         LocationData locationData = new LocationData();
-        locationData.setAccuracy(l.getAccuracy());
-        locationData.setLat(l.getLatitude());
-        locationData.setLon(l.getLongitude());
-        locationData.setSpeed(l.getSpeed());
+        locationData.setAccuracy(l == null ? 0 : l.getAccuracy());
+        locationData.setLat(l == null ? 0 : l.getLatitude());
+        locationData.setLon(l == null ? 0 : l.getLongitude());
+        locationData.setSpeed(l == null ? 0 : l.getSpeed());
         return locationData;
     }
 
