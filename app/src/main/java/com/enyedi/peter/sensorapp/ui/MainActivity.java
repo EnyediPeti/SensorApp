@@ -9,6 +9,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -53,13 +54,14 @@ import permissions.dispatcher.PermissionUtils;
 import permissions.dispatcher.RuntimePermissions;
 
 @RuntimePermissions
-public class MainActivity extends AppCompatActivity implements SensorEventListener, LocationListener {
+public class MainActivity extends AppCompatActivity implements SensorEventListener, LocationListener, GpsStatus.Listener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final long MIN_TIME_BW_UPDATES = 0;
     private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 0;
     Button startStopButton;
     TextView chronometer;
+    TextView satellites;
 
     boolean isMeasurementStarted = false;
 
@@ -82,6 +84,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     List<LocationData> locationList = new ArrayList<>();
     List<String> compassList = new ArrayList<>();
 
+    // For compass
     float[] gData = new float[3]; // gravity or accelerometer
     float[] mData = new float[3]; // magnetometer
     float[] rMat = new float[9];
@@ -108,9 +111,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         setContentView(R.layout.activity_main);
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        locationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
+        checkPermissionForGpsStatus();
 
         startStopButton = (Button) findViewById(R.id.startStopButton);
         chronometer = (TextView) findViewById(R.id.chronometer);
+        satellites = (TextView) findViewById(R.id.satellites);
         startStopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -131,12 +137,40 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onPause();
     }
 
-    private void onStartClicked() {
+    private void checkPermissionForGpsStatus() {
         if (PermissionUtils.hasSelfPermissions(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            startAllSensor();
+            addGpsStatusListener();
         } else {
             if (PermissionUtils.shouldShowRequestPermissionRationale(
                     this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                MainActivityPermissionsDispatcher.addGpsStatusListenerWithCheck(this);
+            } else {
+                showPermissionDialog(getString(R.string.permission_show_rationale), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        MainActivityPermissionsDispatcher.addGpsStatusListenerWithCheck(MainActivity.this);
+                    }
+                });
+            }
+        }
+    }
+
+    @NeedsPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    public void addGpsStatusListener() {
+        try {
+            locationManager.addGpsStatusListener(this);
+            startGps();
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void onStartClicked() {
+        if (PermissionUtils.hasSelfPermissions(this, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            startAllSensor();
+        } else {
+            if (PermissionUtils.shouldShowRequestPermissionRationale(
+                    this, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                 MainActivityPermissionsDispatcher.startAllSensorWithCheck(this);
             } else {
                 showPermissionDialog(getString(R.string.permission_show_rationale), new DialogInterface.OnClickListener() {
@@ -159,7 +193,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @NeedsPermission({Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE})
     public void startAllSensor() {
-        locationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
         if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             startTimer();
             startDate = DateUtil.getFormattedDate();
@@ -168,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             startAccelerometer();
             startGyro();
             startInklinometer();
-            startGps();
+            //startGps();
             startCompass();
 
             openCsvWriter();
@@ -313,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void startAccelerometer() {
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         accEventList = new ArrayList<>();
         /*Log.d(TAG, "startAccelerometer: name: [" + accelerometer.getName() +
@@ -334,16 +367,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onSensorChanged(SensorEvent event) {
         switch (event.sensor.getType()) {
-            case Sensor.TYPE_LINEAR_ACCELERATION:
-                accEventList.add(createNewSensorData(event));
+            case Sensor.TYPE_ACCELEROMETER:
+                accEventList.add(SensorUtil.createNewSensorData(event));
                 locationList.add(SensorUtil.createNewLocationData(loc));
                 gData = event.values.clone();
                 break;
             case Sensor.TYPE_GYROSCOPE:
-                gyrEventList.add(createNewSensorData(event));
+                gyrEventList.add(SensorUtil.createNewSensorData(event));
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
-                rotEventList.add(createNewSensorData(event));
+                rotEventList.add(SensorUtil.createNewSensorData(event));
                 SensorManager.getRotationMatrixFromVector(rMat, event.values);
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
@@ -358,13 +391,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    private SensorData createNewSensorData(SensorEvent event) {
-        SensorData data = new SensorData();
-        data.setValues(event.values);
-        data.setTimestamp(event.timestamp);
-        return data;
-    }
-
     private void openCsvWriter() {
         String baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
         String fileName = "MeasurementData_" + DateUtil.getFormattedDate() + ".csv";
@@ -376,9 +402,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             // File exist
             if (f.exists() && !f.isDirectory()) {
                 FileWriter mFileWriter = new FileWriter(filePath, true);
-                writer = new CSVWriter(mFileWriter);
+                writer = new CSVWriter(mFileWriter, ';');
             } else {
-                writer = new CSVWriter(new FileWriter(filePath));
+                writer = new CSVWriter(new FileWriter(filePath), ';');
             }
         } catch (IOException e) {
             Toast.makeText(this, "Error during opening csv writer", Toast.LENGTH_LONG).show();
@@ -389,7 +415,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void writeDataInFile() {
         String[] startTime = {"Start", startDate};
         String[] endTime = {"End", DateUtil.getFormattedDate()};
-        String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 10)))};
+        String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 100)))};
         String[] headers = {"parameters:", "t[s]", "v[m/s]", "lat", "lon", "accuracy", "ax", "ay", "az", "pitch", "roll", "yaw", "gyro_x", "gyro_y", "gyro_z", "deg"};
 
 
@@ -403,8 +429,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         List<SensorData> rotData;
         List<String> compData;
 
-        accData = accEventList/*.subList(accEventList.size() - rotEventList.size(), accEventList.size())*/;
-        gyroData = accEventList/*.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size())*/;
+        accData = accEventList.subList(accEventList.size() - rotEventList.size(), accEventList.size());
+        gyroData = accEventList.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size());
         rotData = rotEventList;
         compData = SensorUtil.removeZeroValues(compassList);
 
@@ -454,6 +480,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void onProviderDisabled(String provider) {
         if (locationManager != null) {
             locationManager.removeUpdates(this);
+        }
+    }
+
+    @Override
+    public void onGpsStatusChanged(int event) {
+        if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
+            satellites.setText(SensorUtil.getNumberOfSatellites(locationManager.getGpsStatus(null).getSatellites()));
         }
     }
 }
