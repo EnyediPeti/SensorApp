@@ -135,6 +135,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onPause() {
         if (locationManager != null) {
             locationManager.removeUpdates(this);
+            locationManager.removeGpsStatusListener(this);
         }
         super.onPause();
     }
@@ -364,6 +365,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void stopAllSensor() {
         sensorManager.unregisterListener(this);
+        locationManager.removeUpdates(this);
+        locationManager.removeGpsStatusListener(this);
         writeDataInFile();
     }
 
