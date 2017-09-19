@@ -29,6 +29,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
+import com.crashlytics.android.answers.Answers;
+import com.crashlytics.android.answers.CustomEvent;
 import com.enyedi.peter.sensorapp.R;
 import com.enyedi.peter.sensorapp.model.LocationData;
 import com.enyedi.peter.sensorapp.model.SensorData;
@@ -205,6 +207,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             startCompass();
 
             openCsvWriter();
+
+            Answers.getInstance().logCustom(new CustomEvent("Start measurement"));
         } else {
             Toast.makeText(this, "Enable GPS to use this app", Toast.LENGTH_LONG).show();
         }
@@ -415,6 +419,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void writeDataInFile() {
         String[] startTime = {"Start", startDate};
         String[] endTime = {"End", DateUtil.getFormattedDate()};
+
+        Answers.getInstance().logCustom(new CustomEvent("End measurement")
+                .putCustomAttribute("Start time", startDate)
+                .putCustomAttribute("End time", endTime[1])
+        );
+
         String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 100)))};
         String[] headers = {"parameters:", "t[s]", "v[m/s]", "lat", "lon", "accuracy", "ax", "ay", "az", "pitch", "roll", "yaw", "gyro_x", "gyro_y", "gyro_z", "deg"};
 
@@ -486,7 +496,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onGpsStatusChanged(int event) {
         if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
-            satellites.setText(SensorUtil.getNumberOfSatellites(locationManager.getGpsStatus(null).getSatellites()));
+            try {
+                satellites.setText(SensorUtil.getNumberOfSatellites(locationManager.getGpsStatus(null).getSatellites()));
+            } catch (SecurityException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
