@@ -15,32 +15,25 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
-import com.crashlytics.android.answers.Answers;
-import com.crashlytics.android.answers.CustomEvent;
 import com.enyedi.peter.sensorapp.R;
 import com.enyedi.peter.sensorapp.model.LocationData;
 import com.enyedi.peter.sensorapp.model.SensorData;
+import com.enyedi.peter.sensorapp.util.CsvWriterHelper;
 import com.enyedi.peter.sensorapp.util.DateUtil;
 import com.enyedi.peter.sensorapp.util.SensorUtil;
-import com.opencsv.CSVWriter;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +52,7 @@ import permissions.dispatcher.RuntimePermissions;
 public class MainActivity extends AppCompatActivity implements SensorEventListener, LocationListener, GpsStatus.Listener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+
     private static final long MIN_TIME_BW_UPDATES = 0;
     private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 0;
     Button startStopButton;
@@ -78,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     Sensor inklinometer;
     Sensor compass;
 
-    CSVWriter writer;
+    CsvWriterHelper csvWriterHelper;
 
     List<SensorData> accEventList = new ArrayList<>();
     List<SensorData> gyrEventList = new ArrayList<>();
@@ -129,6 +123,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
             }
         });
+
+        csvWriterHelper = new CsvWriterHelper(this);
     }
 
     @Override
@@ -207,9 +203,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             //startGps();
             startCompass();
 
-            openCsvWriter();
+            csvWriterHelper.openCsvWriter();
 
-            Answers.getInstance().logCustom(new CustomEvent("Start measurement"));
         } else {
             Toast.makeText(this, "Enable GPS to use this app", Toast.LENGTH_LONG).show();
         }
@@ -367,7 +362,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sensorManager.unregisterListener(this);
         locationManager.removeUpdates(this);
         locationManager.removeGpsStatusListener(this);
-        writeDataInFile();
+
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                csvWriterHelper.writeDataInFile(startDate, accEventList, rotEventList, gyrEventList, compassList, locationList);
+            }
+        });
+        t.run();
     }
 
 
@@ -394,93 +396,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-    }
-
-    private void openCsvWriter() {
-        String baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
-        String fileName = "MeasurementData_" + DateUtil.getFormattedDate() + ".csv";
-        String filePath = baseDir + File.separator + fileName;
-        Log.d(TAG, "saveDataToCsv: filepath: " + filePath);
-        File f = new File(filePath);
-
-        try {
-            // File exist
-            if (f.exists() && !f.isDirectory()) {
-                FileWriter mFileWriter = new FileWriter(filePath, true);
-                writer = new CSVWriter(mFileWriter, ';');
-            } else {
-                writer = new CSVWriter(new FileWriter(filePath), ';');
-            }
-        } catch (IOException e) {
-            Toast.makeText(this, "Error during opening csv writer", Toast.LENGTH_LONG).show();
-            e.printStackTrace();
-        }
-    }
-
-    private void writeDataInFile() {
-        String[] startTime = {"Start", startDate};
-        String[] endTime = {"End", DateUtil.getFormattedDate()};
-
-        Answers.getInstance().logCustom(new CustomEvent("End measurement")
-                .putCustomAttribute("Start time", startDate)
-                .putCustomAttribute("End time", endTime[1])
-        );
-
-        String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 100)))};
-        String[] headers = {"parameters:", "t[s]", "v[m/s]", "lat", "lon", "accuracy", "ax", "ay", "az", "pitch", "roll", "yaw", "gyro_x", "gyro_y", "gyro_z", "deg"};
-
-
-        writer.writeNext(startTime);
-        writer.writeNext(endTime);
-        writer.writeNext(sensorFreq);
-        writer.writeNext(headers);
-
-        List<SensorData> accData;
-        List<SensorData> gyroData;
-        List<SensorData> rotData;
-        List<String> compData;
-
-        accData = accEventList.subList(accEventList.size() - rotEventList.size(), accEventList.size());
-        gyroData = accEventList.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size());
-        rotData = rotEventList;
-        compData = SensorUtil.removeZeroValues(compassList);
-
-        Log.d(TAG, "writeDataInFile: accData " + accData.size());
-        Log.d(TAG, "writeDataInFile: gyroData " + gyroData.size());
-        Log.d(TAG, "writeDataInFile: rotData " + rotData.size());
-        Log.d(TAG, "writeDataInFile: compData " + compData.size());
-
-        int listSize = accData.size() < compData.size() ? accData.size() : compData.size();
-
-        for (int i = 0; i < listSize; i++) {
-            writer.writeNext(
-                    new String[]{"",
-                            DateUtil.getSecondFromSensorTimestamp(accData.get(0).getTimestamp(), accData.get(i).getTimestamp()),
-                            String.valueOf(locationList.get(i).getSpeed()), String.valueOf(locationList.get(i).getLat()), String.valueOf(locationList.get(i).getLon()), String.valueOf(locationList.get(i).getAccuracy()), // GPS speed, lat, lon, acc
-                            String.valueOf(accData.get(i).getValues()[0]), String.valueOf(accData.get(i).getValues()[1]), String.valueOf(accData.get(i).getValues()[2]), // accelerometer x, y, z
-                            String.valueOf(rotData.get(i).getValues()[0]), String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]), // rotation x, y, z
-                            String.valueOf(gyroData.get(i).getValues()[0]), String.valueOf(gyroData.get(i).getValues()[1]), String.valueOf(gyroData.get(i).getValues()[2]), // gyroscope x, y, z
-                            compData.get(i)
-                    });
-        }
-
-        try {
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
     public void onLocationChanged(Location location) {
         loc = location;
-        Log.d(TAG, "onLocationChanged() called with: location = [" + location.getAccuracy() + "]");
+        //Log.d(TAG, "onLocationChanged() called with: location = [" + location.getAccuracy() + "]");
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
 
@@ -504,6 +431,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             } catch (SecurityException e) {
                 e.printStackTrace();
             }
+        } else if (event == GpsStatus.GPS_EVENT_FIRST_FIX) {
+            satellites.setBackgroundColor(getResources().getColor(R.color.green));
         }
     }
 }

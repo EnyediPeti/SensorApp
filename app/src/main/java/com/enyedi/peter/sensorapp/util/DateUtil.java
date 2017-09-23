@@ -12,6 +12,6 @@ public class DateUtil {
     }
 
     public static String getSecondFromSensorTimestamp(final long startTime, final long timestamp) {
-        return String.format(Locale.getDefault(), "%.2f", ((timestamp - startTime) / 1000000000.0));
+        return String.format(Locale.ROOT, "%.3f", ((timestamp - startTime) / 1000000000.0));
     }
 }
