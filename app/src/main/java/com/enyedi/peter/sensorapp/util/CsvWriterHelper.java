@@ -79,13 +79,6 @@ public class CsvWriterHelper {
         rotData = rotEventList;
         compData = /*SensorUtil.removeZeroValues(*/compassList/*)*/;
 
-        Answers.getInstance().logCustom(new CustomEvent("Modified Sensor lists")
-                .putCustomAttribute("Acc", accData.size())
-                .putCustomAttribute("Gyro", gyroData.size())
-                .putCustomAttribute("Rot", rotData.size())
-                .putCustomAttribute("Comp", compData.size())
-        );
-
         Log.d(TAG, "writeDataInFile: accData " + accData.size());
         Log.d(TAG, "writeDataInFile: gyroData " + gyroData.size());
         Log.d(TAG, "writeDataInFile: rotData " + rotData.size());
