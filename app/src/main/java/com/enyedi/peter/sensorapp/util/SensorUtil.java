@@ -17,8 +17,8 @@ public class SensorUtil {
 
     public static SensorData createNewSensorData(SensorEvent event) {
         SensorData data = new SensorData();
-        data.setValues(event.values);
-        data.setTimestamp(event.timestamp);
+        data.setValues(event == null ? new float[3] : event.values);
+        data.setTimestamp(event == null ? 0 : event.timestamp);
         return data;
     }
 

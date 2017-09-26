@@ -65,6 +65,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     TimerTask task;
     LocationManager locationManager;
     Location loc;
+    SensorEvent lastGyroData;
+    SensorEvent lastRotData;
+    String lastCompassData;
 
     SensorManager sensorManager;
     Sensor accelerometer;
@@ -203,7 +206,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             //startGps();
             startCompass();
 
-            csvWriterHelper.openCsvWriter();
+            boolean success = csvWriterHelper.openCsvWriter();
+
+            if (!success) {
+                onStopClicked();
+                Toast.makeText(this, "Something went wrong...\nRelaunch the app!", Toast.LENGTH_LONG).show();
+            }
 
         } else {
             Toast.makeText(this, "Enable GPS to use this app", Toast.LENGTH_LONG).show();
@@ -310,52 +318,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void startCompass() {
         compass = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         sensorManager.registerListener(this, compass, SensorManager.SENSOR_DELAY_FASTEST);
-        /*Log.d(TAG, "startCompass: name: [" + compass.getName() +
-                "], min delay: [" + compass.getMinDelay() +
-                "], max delay: [" + compass.getMaxDelay() +
-                "], max range: [" + compass.getMaximumRange() +
-                "], resolution: [" + compass.getResolution() +
-                "]"
-        );*/
     }
 
     private void startInklinometer() {
         inklinometer = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         sensorManager.registerListener(this, inklinometer, SensorManager.SENSOR_DELAY_FASTEST);
         rotEventList = new ArrayList<>();
-        /*Log.d(TAG, "startInklinometer: name: [" + inklinometer.getName() +
-                "], min delay: [" + inklinometer.getMinDelay() +
-                "], max delay: [" + inklinometer.getMaxDelay() +
-                "], max range: [" + inklinometer.getMaximumRange() +
-                "], resolution: [" + inklinometer.getResolution() +
-                "]"
-        );*/
     }
 
     private void startGyro() {
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_FASTEST);
         gyrEventList = new ArrayList<>();
-        /*Log.d(TAG, "startGyro: name: [" + gyroscope.getName() +
-                "], min delay: [" + gyroscope.getMinDelay() +
-                "], max delay: [" + gyroscope.getMaxDelay() +
-                "], max range: [" + gyroscope.getMaximumRange() +
-                "], resolution: [" + gyroscope.getResolution() +
-                "]"
-        );*/
     }
 
     private void startAccelerometer() {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         accEventList = new ArrayList<>();
-        /*Log.d(TAG, "startAccelerometer: name: [" + accelerometer.getName() +
-                "], min delay: [" + accelerometer.getMinDelay() +
-                "], max delay: [" + accelerometer.getMaxDelay() +
-                "], max range: [" + accelerometer.getMaximumRange() +
-                "], resolution: [" + accelerometer.getResolution() +
-                "]"
-        );*/
     }
 
     private void stopAllSensor() {
@@ -379,18 +359,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             case Sensor.TYPE_ACCELEROMETER:
                 accEventList.add(SensorUtil.createNewSensorData(event));
                 locationList.add(SensorUtil.createNewLocationData(loc));
+                gyrEventList.add(SensorUtil.createNewSensorData(lastGyroData));
+                rotEventList.add(SensorUtil.createNewSensorData(lastRotData));
+                compassList.add(lastCompassData);
                 gData = event.values.clone();
                 break;
             case Sensor.TYPE_GYROSCOPE:
-                gyrEventList.add(SensorUtil.createNewSensorData(event));
+                lastGyroData = event;
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
-                rotEventList.add(SensorUtil.createNewSensorData(event));
+                lastRotData = event;
                 SensorManager.getRotationMatrixFromVector(rMat, event.values);
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
                 mData = event.values.clone();
-                compassList.add(SensorUtil.calculateCompassDegree(orientation, rMat, iMat, gData, mData));
+                lastCompassData = SensorUtil.calculateCompassDegree(orientation, rMat, iMat, gData, mData);
                 break;
         }
     }

@@ -28,7 +28,7 @@ public class CsvWriterHelper {
         this.context = context;
     }
 
-    public void openCsvWriter() {
+    public boolean openCsvWriter() {
         String baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
         String fileName = "MeasurementData_" + DateUtil.getFormattedDate() + ".csv";
         String filePath = baseDir + File.separator + fileName;
@@ -43,9 +43,11 @@ public class CsvWriterHelper {
             } else {
                 writer = new CSVWriter(new FileWriter(filePath), ';');
             }
+            return true;
         } catch (IOException e) {
             Toast.makeText(context, "Error during opening csv writer", Toast.LENGTH_LONG).show();
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -67,10 +69,15 @@ public class CsvWriterHelper {
                 .putCustomAttribute("Comp", compassList.size())
         );
 
-        accData = accEventList.subList(accEventList.size() - rotEventList.size(), accEventList.size());
-        gyroData = accEventList.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size());
+        Log.d(TAG, "writeDataInFile: acc " + accEventList.size());
+        Log.d(TAG, "writeDataInFile: gyro " + gyrEventList.size());
+        Log.d(TAG, "writeDataInFile: rot " + rotEventList.size());
+        Log.d(TAG, "writeDataInFile: comp " + compassList.size());
+
+        accData = accEventList/*.subList(accEventList.size() - rotEventList.size(), accEventList.size())*/;
+        gyroData = accEventList/*.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size())*/;
         rotData = rotEventList;
-        compData = SensorUtil.removeZeroValues(compassList);
+        compData = /*SensorUtil.removeZeroValues(*/compassList/*)*/;
 
         Answers.getInstance().logCustom(new CustomEvent("Modified Sensor lists")
                 .putCustomAttribute("Acc", accData.size())
@@ -94,7 +101,7 @@ public class CsvWriterHelper {
                             String.valueOf(accData.get(i).getValues()[0]), String.valueOf(accData.get(i).getValues()[1]), String.valueOf(accData.get(i).getValues()[2]), // accelerometer x, y, z
                             String.valueOf(rotData.get(i).getValues()[0]), String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]), // rotation x, y, z
                             String.valueOf(gyroData.get(i).getValues()[0]), String.valueOf(gyroData.get(i).getValues()[1]), String.valueOf(gyroData.get(i).getValues()[2]), // gyroscope x, y, z
-                            /*compData.get(i)*/
+                            compData.get(i)
                     });
         }
 
@@ -128,7 +135,7 @@ public class CsvWriterHelper {
                 "ax", "ay", "az",
                 "pitch", "roll", "yaw",
                 "gyro_x", "gyro_y", "gyro_z",
-                /*"deg"*/};
+                "deg"};
 
         writer.writeNext(headers);
     }
