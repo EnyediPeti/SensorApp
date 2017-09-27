@@ -114,7 +114,7 @@ public class CsvWriterHelper {
                 .putCustomAttribute("End time", endTime[1])
         );
 
-        String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.subList(0, 100)))};
+        String[] sensorFreq = {"All sensor Fs", String.format(Locale.getDefault(), "%d Hz", SensorUtil.calculateSensorFrequency(accEventList.size() < 100 ? accEventList : accEventList.subList(0, 100)))};
 
         writer.writeNext(startTime);
         writer.writeNext(endTime);
