@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if (!isMeasurementStarted) {
                     onStartClicked();
                 } else {
-                    onStopClicked();
+                    onStopClicked(false);
                 }
             }
         });
@@ -186,18 +186,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    private void onStopClicked() {
+    private void onStopClicked(boolean isErrorOccurred) {
         timer.cancel();
         startStopButton.setText(getString(R.string.start));
         isMeasurementStarted = false;
-        stopAllSensor();
+        stopAllSensor(isErrorOccurred);
     }
 
     @NeedsPermission({Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE})
     public void startAllSensor() {
         if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             startTimer();
-            startDate = DateUtil.getFormattedDate();
+            startDate = DateUtil.getFormattedDate(false);
             startStopButton.setText(getString(R.string.stop));
             isMeasurementStarted = true;
             startAccelerometer();
@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             boolean success = csvWriterHelper.openCsvWriter();
 
             if (!success) {
-                onStopClicked();
+                onStopClicked(true);
                 Toast.makeText(this, "Something went wrong...\nRelaunch the app!", Toast.LENGTH_LONG).show();
             }
 
@@ -338,18 +338,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         accEventList = new ArrayList<>();
     }
 
-    private void stopAllSensor() {
+    private void stopAllSensor(boolean isErrorOccurred) {
         sensorManager.unregisterListener(this);
         locationManager.removeUpdates(this);
         locationManager.removeGpsStatusListener(this);
 
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                csvWriterHelper.writeDataInFile(startDate, accEventList, rotEventList, gyrEventList, compassList, locationList);
-            }
-        });
-        t.run();
+        if (!isErrorOccurred) {
+            Thread t = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    csvWriterHelper.writeDataInFile(startDate, accEventList, rotEventList, gyrEventList, compassList, locationList);
+                }
+            });
+            t.run();
+        }
     }
 
 

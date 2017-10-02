@@ -6,8 +6,13 @@ import java.util.Locale;
 
 public class DateUtil {
 
-    public static String getFormattedDate() {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.getDefault());
+    public static String getFormattedDate(boolean isForFileName) {
+        SimpleDateFormat dateFormat;
+        if (isForFileName) {
+            dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+        } else {
+            dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.getDefault());
+        }
         return dateFormat.format(new Date());
     }
 

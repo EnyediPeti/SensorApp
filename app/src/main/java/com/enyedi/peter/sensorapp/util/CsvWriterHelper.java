@@ -30,7 +30,7 @@ public class CsvWriterHelper {
 
     public boolean openCsvWriter() {
         String baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
-        String fileName = "MeasurementData_" + DateUtil.getFormattedDate() + ".csv";
+        String fileName = "MeasurementData_" + DateUtil.getFormattedDate(true) + ".csv";
         String filePath = baseDir + File.separator + fileName;
         Log.d(TAG, "saveDataToCsv: filepath: " + filePath);
         File f = new File(filePath);
@@ -107,7 +107,7 @@ public class CsvWriterHelper {
 
     private void writeTimeAndFrequencyData(String startDate, List<SensorData> accEventList) {
         String[] startTime = {"Start", startDate};
-        String[] endTime = {"End", DateUtil.getFormattedDate()};
+        String[] endTime = {"End", DateUtil.getFormattedDate(false)};
 
         Answers.getInstance().logCustom(new CustomEvent("End measurement")
                 .putCustomAttribute("Start time", startDate)
