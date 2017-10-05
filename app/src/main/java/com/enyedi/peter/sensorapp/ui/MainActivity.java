@@ -362,7 +362,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 accEventList.add(SensorUtil.createNewSensorData(event));
                 locationList.add(SensorUtil.createNewLocationData(loc));
                 gyrEventList.add(SensorUtil.createNewSensorData(lastGyroData));
-                rotEventList.add(SensorUtil.createNewSensorData(lastRotData));
+                rotEventList.add(SensorUtil.createNewRotationData(orientation));
                 compassList.add(lastCompassData);
                 gData = event.values.clone();
                 break;
@@ -370,8 +370,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 lastGyroData = event;
                 break;
             case Sensor.TYPE_ROTATION_VECTOR:
-                lastRotData = event;
-                SensorManager.getRotationMatrixFromVector(rMat, event.values);
+                //lastRotData = event;
+                //SensorManager.getRotationMatrixFromVector(rMat, event.values);
+                boolean success = SensorManager.getRotationMatrix(rMat, iMat, gData, mData);
+                if (success) {
+                    orientation = new float[3];
+                    SensorManager.getOrientation(rMat, orientation);
+                }
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
                 mData = event.values.clone();

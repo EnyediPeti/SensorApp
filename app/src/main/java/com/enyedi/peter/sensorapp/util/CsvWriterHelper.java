@@ -62,13 +62,6 @@ public class CsvWriterHelper {
         List<SensorData> rotData;
         List<String> compData;
 
-        Answers.getInstance().logCustom(new CustomEvent("Original Sensor lists")
-                .putCustomAttribute("Acc", accEventList.size())
-                .putCustomAttribute("Gyro", gyrEventList.size())
-                .putCustomAttribute("Rot", rotEventList.size())
-                .putCustomAttribute("Comp", compassList.size())
-        );
-
         Log.d(TAG, "writeDataInFile: acc " + accEventList.size());
         Log.d(TAG, "writeDataInFile: gyro " + gyrEventList.size());
         Log.d(TAG, "writeDataInFile: rot " + rotEventList.size());
@@ -92,7 +85,7 @@ public class CsvWriterHelper {
                             DateUtil.getSecondFromSensorTimestamp(accData.get(0).getTimestamp(), accData.get(i).getTimestamp()),
                             String.valueOf(locationList.get(i).getSpeed()), String.valueOf(locationList.get(i).getLat()), String.valueOf(locationList.get(i).getLon()), String.valueOf(locationList.get(i).getAccuracy()), // GPS speed, lat, lon, acc
                             String.valueOf(accData.get(i).getValues()[0]), String.valueOf(accData.get(i).getValues()[1]), String.valueOf(accData.get(i).getValues()[2]), // accelerometer x, y, z
-                            String.valueOf(rotData.get(i).getValues()[0]), String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]), // rotation x, y, z
+                            String.valueOf(rotData.get(i).getValues()[1]), String.valueOf(rotData.get(i).getValues()[2]), String.valueOf(rotData.get(i).getValues()[0]), // rotation x, y, z
                             String.valueOf(gyroData.get(i).getValues()[0]), String.valueOf(gyroData.get(i).getValues()[1]), String.valueOf(gyroData.get(i).getValues()[2]), // gyroscope x, y, z
                             compData.get(i)
                     });

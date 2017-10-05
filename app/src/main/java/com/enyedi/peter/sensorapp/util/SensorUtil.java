@@ -8,7 +8,6 @@ import android.location.Location;
 import com.enyedi.peter.sensorapp.model.LocationData;
 import com.enyedi.peter.sensorapp.model.SensorData;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +18,17 @@ public class SensorUtil {
         SensorData data = new SensorData();
         data.setValues(event == null ? new float[3] : event.values);
         data.setTimestamp(event == null ? 0 : event.timestamp);
+        return data;
+    }
+
+    public static SensorData createNewRotationData(float[] orientation) {
+        SensorData data = new SensorData();
+        float[] degValues = new float[3];
+        degValues[0] = (float) Math.toDegrees(orientation[0]);
+        degValues[1] = (float) Math.toDegrees(orientation[1]);
+        degValues[2] = (float) Math.toDegrees(orientation[2]);
+        data.setValues(degValues);
+        data.setTimestamp(0);
         return data;
     }
 
@@ -43,16 +53,6 @@ public class SensorUtil {
 
     public static String calculateCompassDegree(float[] orientation, float[] rMat, float[] iMat, float[] gData, float[] mData) {
         return String.valueOf((int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360);
-    }
-
-    public static List<String> removeZeroValues(List<String> list) {
-        List<String> newList = new ArrayList<>();
-        for (String s : list) {
-            if (!s.equals("0")) {
-                newList.add(s);
-            }
-        }
-        return newList;
     }
 
     public static String getNumberOfSatellites(Iterable iterable) {
