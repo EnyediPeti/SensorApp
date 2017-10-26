@@ -47,7 +47,7 @@
         android:layout_marginRight="0dp"
         android:layout_marginTop="8dp"
         android:background="@color/red"
-        android:text="Number of satellites: 0"
+        android:text="GPS accuracy: 0 meters"
         android:textAlignment="center"
         android:textColor="@color/white"
         android:textSize="26sp"

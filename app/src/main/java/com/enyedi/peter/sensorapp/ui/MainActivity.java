@@ -389,6 +389,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void onLocationChanged(Location location) {
         loc = location;
         //Log.d(TAG, "onLocationChanged() called with: location = [" + location.getAccuracy() + "]");
+        satellites.setText(SensorUtil.getGpsAccuracy(loc));
     }
 
     @Override
@@ -415,13 +416,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onGpsStatusChanged(int event) {
-        if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
+        /*if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
             try {
                 satellites.setText(SensorUtil.getNumberOfSatellites(locationManager.getGpsStatus(null).getSatellites()));
             } catch (SecurityException e) {
                 e.printStackTrace();
             }
-        } else if (event == GpsStatus.GPS_EVENT_FIRST_FIX) {
+        } else */if (event == GpsStatus.GPS_EVENT_FIRST_FIX) {
             satellites.setBackgroundColor(getResources().getColor(R.color.green));
         }
     }

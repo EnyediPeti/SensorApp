@@ -65,4 +65,8 @@ public class SensorUtil {
         }
         return String.format(Locale.getDefault(), "Number of satellites: %d", count);
     }
+
+    public static String getGpsAccuracy(Location location) {
+        return String.format(Locale.getDefault(), "GPS accuracy: %d meters", (int) location.getAccuracy());
+    }
 }
