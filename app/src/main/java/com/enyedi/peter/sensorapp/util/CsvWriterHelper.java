@@ -68,7 +68,7 @@ public class CsvWriterHelper {
         Log.d(TAG, "writeDataInFile: comp " + compassList.size());
 
         accData = accEventList/*.subList(accEventList.size() - rotEventList.size(), accEventList.size())*/;
-        gyroData = accEventList/*.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size())*/;
+        gyroData = gyrEventList/*.subList(gyrEventList.size() - rotEventList.size(), gyrEventList.size())*/;
         rotData = rotEventList;
         compData = /*SensorUtil.removeZeroValues(*/compassList/*)*/;
 
